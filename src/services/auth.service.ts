@@ -2,47 +2,95 @@ import bcrypt from "bcryptjs"
 import { createUser, checkUser } from "../repositories/user.repository"
 import { IUser } from "../models/user.model"
 import { v4 as uuidv4 } from "uuid"
+import { publishToQueue } from "./messaging.service"
 
 // Register user
 export const registerUser = async (
-    email: string,
-    password: string,
-    role: string,
-    name: {
-        firstName: string
-        lastName: string
-    },
-
-    companyRefId: string,
-    token: string
+    user: IUser
 ): Promise<{
     firstName: string
     message: string
     success: boolean
-    user: IUser|null
+    user: IUser | null
 }> => {
-    const username = generateUsername(role, name.firstName, name.lastName)
+    let companyRefId = "";
+    const { role, email, password } = user
+    if (role === "shipperAdmin" || role === "carrierAdmin") {
+        companyRefId = generateCompanyRefId(role)
+    }else{
+       companyRefId= user.companyRefId
+       console.log("companyRefId", companyRefId)
+       
+    }
+
+    const { firstName, lastName } = user.name
+    const username = generateUsername(role, firstName, lastName)
 
     const result: {
         firstName: string
         message: string
         success: boolean
-        user: IUser |null
+        user: IUser | null
     } = await createUser(
         email,
         password,
         role,
-        name,
+        user.name,
         username,
         companyRefId,
-        token
+        user.token
     )
+if(result.success){
+    // Publish an event to RabbitMQ for sending a welcome email
+    console.log(result);
+    
+    const message = JSON.stringify({
+        email: result.user?.email,
+        subject: "Welcome to Our Service",
+        text: `Hello ${result.firstName},\n\nThank you for registering with us! Your username is ${result.user?.username}.\n\nBest regards,\nThe Team`,
+    })
+
+    try {
+        await publishToQueue("emailQueue", message)
+        console.log("Message published to emailQueue")
+    } catch (messageError) {
+        console.error("Error publishing to queue:", messageError)
+    }
+
+        const userId = result.user?._id
+        const data = { ...user, userId, companyRefId, username }
+        console.log('data that is sending to the carrier:',data);
+        
+       if (
+           result.user?.role == "carrierAdmin" ||
+           result.user?.role == "driver"
+       ) {
+           try {
+               await publishToQueue("carrierServiceQueue", JSON.stringify(data))
+               console.log("Message published to carrierServiceQueue")
+           } catch (messageError) {
+               console.error("Error publishing to queue:", messageError)
+           }
+       } else if (
+           result.user?.role == "shipperAdmin" ||
+           result.user?.role == "shipperStaff"
+       ) {
+           try {
+               await publishToQueue("shipperServiceQueue", JSON.stringify(data))
+               console.log("Message published to shipperServiceQueue")
+           } catch (messageError) {
+               console.error("Error publishing to queue:", messageError)
+           }
+       }
+
+}
+    
 
     return result
 }
 export const loginUser = async (
     username: string,
-    password: string,
+    password: string
 ): Promise<{
     user: IUser | null
     token: string
@@ -56,8 +104,6 @@ export const loginUser = async (
         message: string
         success: boolean
     } = await checkUser(username, password, role)
-
-    
 
     return result
 }
@@ -86,7 +132,7 @@ function generateUsername(role: string, firstName: string, lastName: string) {
 const generateCompanyRefId = (role: string): string => {
     const prefix = role === "shipperAdmin" ? "SH" : "CA" // Prefix for shipper or carrier
     const uniqueId = uuidv4().split("-")[0].toUpperCase()
-    return `${prefix}-${uniqueId}`
+    return `${prefix}${uniqueId}`
 }
 const findRoleFromUsername = (username: string): string => {
     const rolePrefixes: { [key: string]: string } = {

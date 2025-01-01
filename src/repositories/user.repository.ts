@@ -23,6 +23,8 @@ export const createUser = async (
     try {
         let userId
         // Check if the email already exists for the given role
+        console.log(email,role);
+        
         const existingUser = await User.findOne({ email, role })
 
         // If an existing user with the same email and role is found, return a message
@@ -52,20 +54,7 @@ export const createUser = async (
         const firstName = savedUser.name.firstName
         userId = savedUser.id.toString()
 
-        // Publish an event to RabbitMQ for sending a welcome email
-        const message = JSON.stringify({
-            email: user.email,
-            subject: "Welcome to Our Service",
-            text: `Hello ${user.name.firstName},\n\nThank you for registering with us! Your username is ${username}.\n\nBest regards,\nThe Team`,
-        })
-
-        try {
-            await publishToQueue("emailQueue", message)
-            console.log("Message published to emailQueue")
-        } catch (messageError) {
-            console.error("Error publishing to queue:", messageError)
-        }
-
+       
         return {
             firstName,
             message: "User registered successfully",
@@ -112,10 +101,10 @@ export const checkUser = async (
                 success: false,
             }
         }
-        const token = generateToken(user)
+       
         return {
             user,
-            token,
+            token:'',
             message: "User logged in successfully",
             success: true,
         }
@@ -128,9 +117,4 @@ export const checkUser = async (
             success: false,
         }
     }
-}
-const generateToken = (user: IUser): string => {
-    return jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, {
-        expiresIn: "1h",
-    })
 }

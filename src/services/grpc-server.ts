@@ -4,6 +4,7 @@ const grpc = require("@grpc/grpc-js")
 const protoLoader = require("@grpc/proto-loader")
 import { loginUser, registerUser } from "./auth.service"
 import { IUser } from "../models/user.model"
+import { log } from "@grpc/grpc-js/build/src/logging"
 
 // Define paths
 const PROTO_PATH = path.join(__dirname, "../../../protos/auth.proto")
@@ -29,46 +30,30 @@ server.addService(authProto.AuthService.service, {
     Register: async (
         call: ServerUnaryCall<
             {
-                email: string
-                password: string
-                role: string
-                name: {
-                    firstName: string
-                    lastName: string
-                }
-
-                companyRefId: string
-                token: string
+                user: IUser
             },
             {
                 firstName: string
                 message: string
                 success: boolean
-                user: IUser|null
+                user: IUser | null
             }
         >,
         callback: sendUnaryData<{
             firstName: string
             message: string
             success: boolean
-            
-            user: IUser|null
+
+            user: IUser | null
         }>
     ) => {
-        const { email, password, role, name, companyRefId, token } =
-            call.request
+        const  {user} = call.request
+        
+        
 
         try {
-            const user = await registerUser(
-                email,
-                password,
-                role,
-                name,
-
-                companyRefId,
-                token
-            )
-            callback(null, user)
+            const data = await registerUser(user)
+            callback(null, data)
         } catch (error) {
             callback(error as Error, null)
         }

@@ -34,10 +34,10 @@ const server = new grpc.Server();
 // Implement service methods
 server.addService(authProto.AuthService.service, {
     Register: (call, callback) => __awaiter(void 0, void 0, void 0, function* () {
-        const { email, password, role, name, companyRefId, token } = call.request;
+        const { user } = call.request;
         try {
-            const user = yield (0, auth_service_1.registerUser)(email, password, role, name, companyRefId, token);
-            callback(null, user);
+            const data = yield (0, auth_service_1.registerUser)(user);
+            callback(null, data);
         }
         catch (error) {
             callback(error, null);

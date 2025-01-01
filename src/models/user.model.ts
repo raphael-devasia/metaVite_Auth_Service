@@ -1,12 +1,46 @@
 import mongoose, { Schema, Document } from "mongoose"
 
-export interface IUser extends Document {
-    _id: mongoose.Types.ObjectId
+
+
+interface IAddress {
+    addressLine1: string
+    addressLine2?: string
+    city: string
+    state: string
+    postalCode: string
+}
+
+interface IEmergencyContact {
+    name: string
+    phoneNumber: string
+}
+
+interface ICompanyDetails {
+    companyName: string
+    companyEmail: string
+    companyPhone: string
+    taxId: string
+    address: IAddress
+}
+
+export interface IUser  {
+    _id:string
+    name: {
+        firstName: string
+        lastName: string
+    }
+    role:string
     email: string
-    password: string
-    username: string
-    name: { firstName: string; lastName: string }
-    role: string
+    phoneNumber:string
+    password:string
+    companyRefId: string
+    username:string
+    address: IAddress
+    personalDetails: {
+        emergencyContact: IEmergencyContact
+    }
+    companyDetails: ICompanyDetails
+    token:string
 }
 
 const UserSchema: Schema = new Schema({

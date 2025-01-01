@@ -15,13 +15,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkUser = exports.createUser = void 0;
 const user_model_1 = __importDefault(require("../models/user.model"));
-const messaging_service_1 = require("../services/messaging.service");
 const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET;
 const createUser = (email, password, role, name, username, companyRefId, token) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         let userId;
         // Check if the email already exists for the given role
+        console.log(email, role);
         const existingUser = yield user_model_1.default.findOne({ email, role });
         // If an existing user with the same email and role is found, return a message
         if (existingUser) {
@@ -47,19 +47,6 @@ const createUser = (email, password, role, name, username, companyRefId, token) 
         console.log("User saved to database:", savedUser);
         const firstName = savedUser.name.firstName;
         userId = savedUser.id.toString();
-        // Publish an event to RabbitMQ for sending a welcome email
-        const message = JSON.stringify({
-            email: user.email,
-            subject: "Welcome to Our Service",
-            text: `Hello ${user.name.firstName},\n\nThank you for registering with us! Your username is ${username}.\n\nBest regards,\nThe Team`,
-        });
-        try {
-            yield (0, messaging_service_1.publishToQueue)("emailQueue", message);
-            console.log("Message published to emailQueue");
-        }
-        catch (messageError) {
-            console.error("Error publishing to queue:", messageError);
-        }
         return {
             firstName,
             message: "User registered successfully",
@@ -98,10 +85,9 @@ const checkUser = (username, password, role) => __awaiter(void 0, void 0, void 0
                 success: false,
             };
         }
-        const token = generateToken(user);
         return {
             user,
-            token,
+            token: '',
             message: "User logged in successfully",
             success: true,
         };
@@ -117,8 +103,3 @@ const checkUser = (username, password, role) => __awaiter(void 0, void 0, void 0
     }
 });
 exports.checkUser = checkUser;
-const generateToken = (user) => {
-    return jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, {
-        expiresIn: "1h",
-    });
-};
